@@ -35,27 +35,4 @@ def load_packages():
             ModelCheckpoint, CSVLogger, torchmetrics)
 
 
-def download_ucm_dataset():
-    "Download the UCMerced Land Use dataset if not already present. "
-    "The dataset will be saved in the 'ucmdata' directory. "
-    
-    import os
-    import zipfile
-    import subprocess
-    import shutil
-    if not os.path.exists('ucmdata'):
-        subprocess.run(['git', 'clone', 'https://git.wur.nl/lobry001/ucmdata.git'])
-        os.chdir('ucmdata')
-
-        with zipfile.ZipFile('UCMerced_LandUse.zip', 'r') as zip_ref:
-            zip_ref.extractall('UCMImages')
-
-        shutil.move('UCMImages/UCMerced_LandUse/Images', '.')
-        shutil.rmtree('UCMImages')
-        os.remove('README.md')
-        os.remove('UCMerced_LandUse.zip')
-        print(os.listdir('.'))
-        UCM_images_path = "Images/"
-        Multilabels_path = "LandUse_Multilabeled.txt"
-    return UCM_images_path, Multilabels_path
         
