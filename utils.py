@@ -152,11 +152,11 @@ class UCMMultilabelDataset(Dataset):
 
 ## Augmentation
 
-def get_transforms(split: str = "train"):
+def get_transforms(split: str = "train", image_size: tuple = IMAGE_SIZE):
     """Standard augmentation."""
     if split == "train":
         return transforms.Compose([
-            transforms.Resize(IMAGE_SIZE),
+            transforms.Resize(image_size),
             transforms.RandomHorizontalFlip(),
             transforms.RandomVerticalFlip(),
             transforms.RandomRotation(45),
@@ -167,13 +167,13 @@ def get_transforms(split: str = "train"):
         ])
     else:
         return transforms.Compose([
-            transforms.Resize(IMAGE_SIZE),
+            transforms.Resize(image_size),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], 
                                  std=[0.229, 0.224, 0.225]),
         ])
-
-
+ 
+ 
 ### Dataloader and data splitting
 def build_dataloaders(
     root_dir:    str   = "ucmdata",
