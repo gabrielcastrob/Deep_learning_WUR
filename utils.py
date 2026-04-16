@@ -1,6 +1,7 @@
 from torch.utils.data import Dataset, DataLoader, Subset
 from torchvision import transforms
 from PIL import Image
+from pathlib import Path
 import os
 import numpy as np
 import pandas as pd
@@ -274,15 +275,6 @@ def compute_test_metrics(test_preds, test_labels, test_probs):
         "hamming_loss": hamming_loss(test_labels, test_preds),
         "subset_acc": (test_preds == test_labels).all(axis=1).mean(),
     }
-    
-    # Print metrics
-    print(f"\nTest accuracy   : {metrics['accuracy']:.4f}")
-    print(f"Test macro F1   : {metrics['macro_f1']:.4f}")
-    print(f"Test micro F1   : {metrics['micro_f1']:.4f}")
-    print(f"Test samples F1 : {metrics['samples_f1']:.4f}")
-    print(f"Test macro mAP  : {metrics['macro_map']:.4f}")
-    print(f"Hamming loss    : {metrics['hamming_loss']:.4f}")
-    print(f"Exact-match acc : {metrics['subset_acc']:.4f}")
     
     return metrics
 
