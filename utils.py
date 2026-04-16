@@ -156,7 +156,7 @@ class UCMMultilabelDataset(Dataset):
 def build_dataloaders(
     root_dir:    str   = "ucmdata",
     label_file:  str   = "LandUse_Multilabeled.txt",
-    image_size:  tuple = IMAGE_SIZE,
+    image_size:  tuple = (224, 224), # Default but needs to be specified! 
     batch_size:  int   = 32,
     num_workers: int   = 2,
     val_frac:    float = 0.15,
