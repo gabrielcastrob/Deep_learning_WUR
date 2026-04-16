@@ -172,7 +172,7 @@ def build_dataloaders(
     train_loader, val_loader, test_loader, classes, pos_w = build_dataloaders()
     criterion = torch.nn.BCEWithLogitsLoss(pos_weight=pos_w)
     """
-    def get_transforms(split: str = "train", image_size: tuple = IMAGE_SIZE):
+    def get_transforms(split: str = "train", image_size: tuple = (224, 224)):
         """Standard augmentation."""
         if split == "train":
             return transforms.Compose([
