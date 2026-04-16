@@ -178,6 +178,7 @@ def get_transforms(split: str = "train", image_size: tuple = IMAGE_SIZE):
 def build_dataloaders(
     root_dir:    str   = "ucmdata",
     label_file:  str   = "LandUse_Multilabeled.txt",
+    image_size:  tuple = IMAGE_SIZE,
     batch_size:  int   = 32,
     num_workers: int   = 2,
     val_frac:    float = 0.15,
@@ -193,8 +194,6 @@ def build_dataloaders(
     train_loader, val_loader, test_loader, classes, pos_w = build_dataloaders()
     criterion = torch.nn.BCEWithLogitsLoss(pos_weight=pos_w)
     """
-    
- 
     full_ds = UCMMultilabelDataset(
         root_dir=root_dir, label_file=label_file,
         transform=None, image_ext=image_ext,
@@ -227,7 +226,7 @@ def build_dataloaders(
     def make_subset(split_name, indices):
         ds = UCMMultilabelDataset(
             root_dir=root_dir, label_file=label_file,
-            transform=get_transforms(split_name), image_ext=image_ext,
+            transform=get_transforms(split_name, image_size), image_ext=image_ext,
         )
         return Subset(ds, indices)
     
@@ -245,6 +244,8 @@ def build_dataloaders(
         full_ds.get_class_names(),
         full_ds.get_class_weights(),
     )
+ 
+ 
  
 
 ### EVALUATIONS and VISUALIZATIONS 
