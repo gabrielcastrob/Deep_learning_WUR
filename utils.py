@@ -251,35 +251,22 @@ def build_dataloaders(
 
 ### EVALUATIONS and VISUALIZATIONS 
 
-
-
-def evaluate_multilabel_model(trainer, lit_model, test_loader, checkpoint_cb):
+def compute_test_metrics(test_preds, test_labels, test_probs):
     """
-    Evaluates a multilabel classification model on test data.
+    Compute multilabel classification metrics on test data.
     
     Args:
-        trainer: Lightning Trainer instance
-        lit_model: LightningModule model
-        test_loader: DataLoader for test set
-        checkpoint_cb: ModelCheckpoint callback with best model path
+        test_preds: Predicted labels, shape (N, C)
+        test_labels: Ground truth labels, shape (N, C)
+        test_probs: Predicted probabilities, shape (N, C)
     
     Returns:
-        dict: Dictionary containing test metrics and predictions
+        dict: Dictionary containing all computed metrics
     """
+    from sklearn.metrics import f1_score, average_precision_score, hamming_loss
     
-    # Load best checkpoint
-    trainer.test(lit_model, dataloaders=test_loader, ckpt_path="best")
-    best_path = checkpoint_cb.best_model_path
-    lit_model = LitResNetMultilabel.load_from_checkpoint(best_path, model=lit_model.model)
-    
-    # Collect predictions
-    preds_out = trainer.predict(lit_model, dataloaders=test_loader)
-    test_probs = torch.cat([b["probs"] for b in preds_out], dim=0).cpu().numpy()
-    test_preds = torch.cat([b["preds"] for b in preds_out], dim=0).cpu().numpy()
-    test_labels = torch.cat([b["labels"] for b in preds_out], dim=0).cpu().numpy()
-    
-    # Compute metrics
     metrics = {
+        "accuracy": (test_preds == test_labels).mean(),
         "macro_f1": f1_score(test_labels, test_preds, average="macro", zero_division=0),
         "micro_f1": f1_score(test_labels, test_preds, average="micro", zero_division=0),
         "samples_f1": f1_score(test_labels, test_preds, average="samples", zero_division=0),
@@ -289,19 +276,15 @@ def evaluate_multilabel_model(trainer, lit_model, test_loader, checkpoint_cb):
     }
     
     # Print metrics
-    print(f"\nTest macro F1   : {metrics['macro_f1']:.4f}")
+    print(f"\nTest accuracy   : {metrics['accuracy']:.4f}")
+    print(f"Test macro F1   : {metrics['macro_f1']:.4f}")
     print(f"Test micro F1   : {metrics['micro_f1']:.4f}")
     print(f"Test samples F1 : {metrics['samples_f1']:.4f}")
     print(f"Test macro mAP  : {metrics['macro_map']:.4f}")
     print(f"Hamming loss    : {metrics['hamming_loss']:.4f}")
     print(f"Exact-match acc : {metrics['subset_acc']:.4f}")
     
-    return {
-        "metrics": metrics,
-        "test_probs": test_probs,
-        "test_preds": test_preds,
-        "test_labels": test_labels,
-    }
+    return metrics
 
 
 def plot_training_curves(csv_logger, model_name: str = "ResNet-50 multilabel", save_path: str = None):
