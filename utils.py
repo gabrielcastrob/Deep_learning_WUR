@@ -151,6 +151,28 @@ class UCMMultilabelDataset(Dataset):
  
 
 ## Augmentation
+
+def get_transforms(split: str = "train", image_size: tuple = (224, 224)):
+    """Standard augmentation."""
+    if split == "train":
+        return transforms.Compose([
+            transforms.Resize(image_size),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomVerticalFlip(),
+            transforms.RandomRotation(45),
+            transforms.ColorJitter(brightness=0.2, contrast=0.4, saturation=0.3),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], # to prevent exploding gradients 
+                                std=[0.229, 0.224, 0.225]),
+        ])
+    else:
+        return transforms.Compose([
+            transforms.Resize(image_size),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], 
+                                std=[0.229, 0.224, 0.225]),
+        ])
+ 
  
 ### Dataloader and data splitting
 def build_dataloaders(
@@ -172,27 +194,6 @@ def build_dataloaders(
     train_loader, val_loader, test_loader, classes, pos_w = build_dataloaders()
     criterion = torch.nn.BCEWithLogitsLoss(pos_weight=pos_w)
     """
-    def get_transforms(split: str = "train", image_size: tuple = (224, 224)):
-        """Standard augmentation."""
-        if split == "train":
-            return transforms.Compose([
-                transforms.Resize(image_size),
-                transforms.RandomHorizontalFlip(),
-                transforms.RandomVerticalFlip(),
-                transforms.RandomRotation(45),
-                transforms.ColorJitter(brightness=0.2, contrast=0.4, saturation=0.3),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406], # to prevent exploding gradients 
-                                    std=[0.229, 0.224, 0.225]),
-            ])
-        else:
-            return transforms.Compose([
-                transforms.Resize(image_size),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.485, 0.456, 0.406], 
-                                    std=[0.229, 0.224, 0.225]),
-            ])
- 
 
     full_ds = UCMMultilabelDataset(
         root_dir=root_dir, label_file=label_file,
