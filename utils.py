@@ -330,6 +330,7 @@ class LightningModuleMultilabel(L.LightningModule):
 ### EVALUATIONS and VISUALIZATIONS 
 from sklearn.metrics import f1_score, average_precision_score, hamming_loss
 import matplotlib.patches as mpatches
+import pandas as pd
 
 
 
@@ -357,6 +358,24 @@ def compute_test_metrics(test_preds, test_labels, test_probs):
     }
     
     return metrics
+
+
+def append_metrics_to_csv(metrics, model_name: str, csv_path="outputs/ModelComparisons.csv"):
+    results_df = pd.DataFrame({
+        "model": [model_name],
+        "accuracy": [metrics['accuracy']],
+        "macro_f1": [metrics['macro_f1']],
+        "micro_f1": [metrics['micro_f1']],
+        "samples_f1": [metrics['samples_f1']],
+        "macro_map": [metrics['macro_map']],
+        "hamming_loss": [metrics['hamming_loss']],
+        "subset_acc": [metrics['subset_acc']]
+    })
+    results_csv_path = csv_path
+    if os.path.exists(results_csv_path):
+        results_df.to_csv(results_csv_path, mode='a', header=False, index=False)
+    else:
+        results_df.to_csv(results_csv_path, index=False)
 
 
 def plot_training_curves(csv_logger, model_name: str = "ResNet-50 multilabel", save_path: str = None):
