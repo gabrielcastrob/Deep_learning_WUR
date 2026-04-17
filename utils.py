@@ -254,7 +254,7 @@ import torch.nn as nn
 import torchmetrics
 import pytorch_lightning as L
 
-class LitResNetMultilabel(L.LightningModule):
+class LightningModuleMultilabel(L.LightningModule):
     def __init__(self, model, num_classes, lr=1e-4, weight_decay=1e-4,
                  max_epochs=15, threshold=0.5, pos_weight=None):
         super().__init__()
@@ -328,6 +328,10 @@ class LitResNetMultilabel(L.LightningModule):
  
 
 ### EVALUATIONS and VISUALIZATIONS 
+from sklearn.metrics import f1_score, average_precision_score, hamming_loss
+import matplotlib.patches as mpatches
+
+
 
 def compute_test_metrics(test_preds, test_labels, test_probs):
     """
@@ -341,7 +345,6 @@ def compute_test_metrics(test_preds, test_labels, test_probs):
     Returns:
         dict: Dictionary containing all computed metrics
     """
-    from sklearn.metrics import f1_score, average_precision_score, hamming_loss
     
     metrics = {
         "accuracy": (test_preds == test_labels).mean(),
@@ -429,7 +432,6 @@ def plot_per_class_metrics(test_labels, test_preds, test_probs, classes,
     Returns:
         tuple: (fig, ax, summary_df) matplotlib objects and summary DataFrame
     """
-    from sklearn.metrics import f1_score, average_precision_score
     
     # Compute per-class metrics
     per_class_f1 = f1_score(test_labels, test_preds, average=None, zero_division=0)
@@ -494,4 +496,119 @@ def plot_per_class_metrics(test_labels, test_preds, test_probs, classes,
         print(f"Saved summary table to: {csv_output}")
     
     return fig, ax, summary
+
+
+def plot_prediction_grid(test_preds, test_labels, test_probs, classes, 
+                         test_loader, root_dir: str = "ucmdata", 
+                         label_file: str = "LandUse_Multilabeled.txt",
+                         n_show: int = 9, seed: int = 4,
+                         save_path: str = None):
+    """
+    Plot a grid of test images with ground-truth vs predicted labels.
+    
+    Args:
+        test_preds: Predicted labels, shape (N, C)
+        test_labels: Ground truth labels, shape (N, C)
+        test_probs: Predicted probabilities, shape (N, C)
+        classes: List of class names
+        test_loader: DataLoader for test set
+        root_dir: Path to dataset root directory
+        label_file: Name of label file
+        n_show: Number of images to display (default 3x3 grid)
+        seed: Random seed for reproducibility
+        save_path: Optional path to save the figure
+    
+    Returns:
+        fig: matplotlib figure object
+    """
+
+    
+    # Load full dataset to access image paths
+    test_ds_full = UCMMultilabelDataset(root_dir=root_dir, label_file=label_file, 
+                                        transform=None)
+    test_ds_subset = test_loader.dataset
+    test_indices = test_ds_subset.indices
+    test_items = [(test_ds_full.image_paths[idx], None) for idx in test_indices]
+    
+    # Setup grid
+    cols = 3
+    rows = (n_show + cols - 1) // cols
+    
+    # Pick a mix: correct predictions + incorrect predictions
+    errors_per_sample = (test_preds != test_labels).sum(axis=1)
+    correct_idx = np.where(errors_per_sample == 0)[0]
+    wrong_idx = np.where(errors_per_sample > 0)[0]
+    
+    rng_show = np.random.default_rng(seed)
+    n_correct = min(n_show // 2, len(correct_idx))
+    n_wrong = n_show - n_correct
+    
+    chosen = np.concatenate([
+        rng_show.choice(correct_idx, n_correct, replace=False),
+        rng_show.choice(wrong_idx, n_wrong, replace=False),
+    ])
+    rng_show.shuffle(chosen)
+    
+    # Create figure
+    fig, axes = plt.subplots(rows, cols, figsize=(cols * 4.5, rows * 5.2))
+    axes = axes.flatten()
+    
+    # Plot each sample
+    for ax, sample_i in zip(axes, chosen):
+        rel_path, _ = test_items[sample_i]
+        img = Image.open(rel_path).convert("RGB")
+        ax.imshow(img)
+        ax.axis("off")
+        
+        gt = test_labels[sample_i].astype(bool)
+        pred = test_preds[sample_i].astype(bool)
+        probs = test_probs[sample_i]
+        
+        tp = gt & pred
+        fp = ~gt & pred
+        fn = gt & ~pred
+        
+        # Title with counts
+        fname = Path(rel_path).name
+        ax.set_title(f"{fname}\nTP={tp.sum()}  FP={fp.sum()}  FN={fn.sum()}",
+                     fontsize=10, loc="right")
+        
+        # Build colored label captions
+        lines = []
+        for i in np.where(tp)[0]:
+            lines.append(("green", f"✓ {classes[i]}({probs[i]:.2f})"))
+        for i in np.where(fn)[0]:
+            lines.append(("red", f"✗ {classes[i]}({probs[i]:.2f})  [missed]"))
+        for i in np.where(fp)[0]:
+            lines.append(("orange", f"+ {classes[i]}({probs[i]:.2f})  [extra]"))
+        
+        # Render colored text
+        for j, (color, text) in enumerate(lines):
+            ax.text(0.0, -0.04 - 0.06 * j, text, transform=ax.transAxes,
+                    fontsize=9, color=color, va="top", ha="left", family="monospace")
+    
+    # Hide unused axes
+    for ax in axes[len(chosen):]:
+        ax.axis("off")
+    
+    # Add legend
+    legend_handles = [
+        mpatches.Patch(color="green", label="TP — correctly predicted"),
+        mpatches.Patch(color="red", label="FN — missed (in GT, not predicted)"),
+        mpatches.Patch(color="orange", label="FP — extra (predicted, not in GT)"),
+    ]
+    fig.legend(handles=legend_handles, loc="upper center",
+               bbox_to_anchor=(0.5, 1.02), ncol=3, frameon=False)
+    
+    plt.tight_layout()
+    
+    # Save if requested
+    if save_path:
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"Saved prediction grid to: {save_path}")
+    
+    plt.show()
+    return fig
+
 
