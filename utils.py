@@ -249,6 +249,82 @@ def build_dataloaders(
     )
  
  
+### Lightning Module Pretrained model and Head for multilabel classification
+import torch.nn as nn
+import torchmetrics
+import pytorch_lightning as L
+
+class LitResNetMultilabel(L.LightningModule):
+    def __init__(self, model, num_classes, lr=1e-4, weight_decay=1e-4,
+                 max_epochs=15, threshold=0.5, pos_weight=None):
+        super().__init__()
+        self.save_hyperparameters(ignore=["model"])
+        self.model = model
+        pos_weight = torch.as_tensor(pos_weight, dtype=torch.float32) if pos_weight is not None else None
+
+        self.criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+        self.threshold = threshold
+
+        mk = dict(task="multilabel", num_labels=num_classes, threshold=threshold)
+        self.train_f1 = torchmetrics.F1Score(average="macro", **mk)
+        self.val_f1   = torchmetrics.F1Score(average="macro", **mk)
+        self.test_f1  = torchmetrics.F1Score(average="macro", **mk)
+        self.val_acc  = torchmetrics.Accuracy(average="macro", **mk)
+        self.test_acc = torchmetrics.Accuracy(average="macro", **mk)
+        self.val_map  = torchmetrics.AveragePrecision(task="multilabel", num_labels=num_classes, average="macro")
+        self.test_map = torchmetrics.AveragePrecision(task="multilabel", num_labels=num_classes, average="macro")
+
+
+    def forward(self, x):
+        return self.model(x)
+
+    def _step(self, batch):
+        imgs, labels = batch          # labels: float tensor (B, C)
+        logits = self(imgs)
+        loss = self.criterion(logits, labels)
+        return loss, logits, labels
+
+    def training_step(self, batch, batch_idx):
+        loss, logits, labels = self._step(batch)
+        self.train_f1.update(logits, labels.int())
+        self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("train_f1",   self.train_f1, on_step=False, on_epoch=True, prog_bar=True)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        loss, logits, labels = self._step(batch)
+        self.val_f1.update(logits, labels.int())
+        self.val_acc.update(logits, labels.int())
+        self.val_map.update(logits, labels.int())
+        self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("val_f1",   self.val_f1,  on_step=False, on_epoch=True, prog_bar=True)
+        self.log("val_acc",  self.val_acc, on_step=False, on_epoch=True)
+        self.log("val_map",  self.val_map, on_step=False, on_epoch=True)
+
+    def test_step(self, batch, batch_idx):
+        loss, logits, labels = self._step(batch)
+        self.test_f1.update(logits, labels.int())
+        self.test_acc.update(logits, labels.int())
+        self.test_map.update(logits, labels.int())
+        self.log("test_loss", loss, on_step=False, on_epoch=True)
+        self.log("test_f1",   self.test_f1,  on_step=False, on_epoch=True)
+        self.log("test_acc",  self.test_acc, on_step=False, on_epoch=True)
+        self.log("test_map",  self.test_map, on_step=False, on_epoch=True)
+
+    def predict_step(self, batch, batch_idx):
+        imgs, labels = batch
+        logits = self(imgs)
+        probs  = torch.sigmoid(logits)
+        preds  = (probs >= self.threshold).int()
+        return {"probs": probs, "preds": preds, "labels": labels.int()}
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.AdamW(self.parameters(),
+                                      lr=self.hparams.lr,
+                                      weight_decay=self.hparams.weight_decay)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=self.hparams.max_epochs)
+        return [optimizer], [scheduler]
  
 
 ### EVALUATIONS and VISUALIZATIONS 
