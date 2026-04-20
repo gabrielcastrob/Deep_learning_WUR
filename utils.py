@@ -279,7 +279,7 @@ def build_dataloaders(
 ### Lightning Module Pretrained model and Head for multilabel classification
 import torch.nn as nn
 import torchmetrics
-import pytorch_lightning as L
+import lightning as L
 
 class LightningModuleMultilabel(L.LightningModule):
     def __init__(self, model, num_classes, lr=1e-4, weight_decay=1e-4,
