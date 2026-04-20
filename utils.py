@@ -178,16 +178,17 @@ def get_transforms(split: str = "train", image_size: tuple = (224, 224)):
  
 ### Dataloader and data splitting
 def build_dataloaders(
-    root_dir:    str   = "ucmdata",
-    label_file:  str   = "LandUse_Multilabeled.txt",
-    image_size:  tuple = (224, 224), # Default but needs to be specified!
-    batch_size:  int   = 32,
-    num_workers: int   = 2,
-    val_frac:    float = 0.15,
-    test_frac:   float = 0.15,
-    seed:        int   = 42,
-    image_ext:   str   = ".tif",
-    stratified:  bool  = True,
+    root_dir:    str        = "ucmdata",
+    label_file:  str        = "LandUse_Multilabeled.txt",
+    image_size:  tuple      = (224, 224), # Default but needs to be specified!
+    batch_size:  int        = 32,
+    num_workers: int        = 2,
+    val_frac:    float      = 0.15,
+    test_frac:   float      = 0.15,
+    seed:        int        = 42,
+    image_ext:   str        = ".tif",
+    stratified:  bool       = True,
+    test_idx:    np.ndarray = None,
 ):
     """
     Returns (train_loader, val_loader, test_loader, class_names, pos_weights).
@@ -197,17 +198,28 @@ def build_dataloaders(
     stratified : bool, default True
         If True, uses MultilabelStratifiedShuffleSplit to preserve label
         distribution across splits.
-        If False, uses a plain random split (ShuffleSplit / train_test_split).
+        If False, uses a plain random split.
+
+    test_idx : np.ndarray, optional
+        Pre-computed test indices to use as the test set. When provided,
+        the function skips test set extraction and uses these indices directly.
+        Use this to share an identical test set across multiple calls
+        (e.g. stratified vs random comparison), ensuring results are comparable.
 
     Usage
     -----
-    # Stratified split (default)
-    train_loader, val_loader, test_loader, classes, pos_w = build_dataloaders(stratified=True)
+    # Shared test set for fair stratified vs random comparison:
 
-    # Random split
-    train_loader, val_loader, test_loader, classes, pos_w = build_dataloaders(stratified=False)
+    # Step 1 — extract shared stratified test set once
+    _, _, test_loader, classes, _ = build_dataloaders(stratified=True, seed=42)
+    shared_test_idx = np.array(test_loader.dataset.indices)
 
-    criterion = torch.nn.BCEWithLogitsLoss(pos_weight=pos_w)
+    # Step 2 — build both splits reusing the same test set
+    train_A, val_A, _, classes, pos_w_A = build_dataloaders(stratified=True,  seed=42, test_idx=shared_test_idx)
+    train_B, val_B, _, _,       pos_w_B = build_dataloaders(stratified=False, seed=42, test_idx=shared_test_idx)
+
+    # Evaluate both models on test_loader (shared)
+    criterion = torch.nn.BCEWithLogitsLoss(pos_weight=pos_w_A)
     """
 
     full_ds = UCMMultilabelDataset(
@@ -219,15 +231,37 @@ def build_dataloaders(
     labels_array = full_ds.label_matrix.numpy()
     all_idx = np.arange(n)
 
-    if stratified:
+    if test_idx is not None:
+        # ── Shared test set provided — only split remaining into train / val ──
+        test_idx      = np.asarray(test_idx)
+        remaining_idx = np.setdiff1d(all_idx, test_idx)
+        remaining_labels = labels_array[remaining_idx]
+        val_frac_adjusted = val_frac / (1 - test_frac)
+
+        if stratified:
+            splitter = MultilabelStratifiedShuffleSplit(
+                n_splits=1, test_size=val_frac_adjusted, random_state=seed
+            )
+            train_local, val_local = next(
+                splitter.split(np.zeros(len(remaining_idx)), remaining_labels)
+            )
+        else:
+            rng = np.random.default_rng(seed)
+            shuffled_remaining = rng.permutation(len(remaining_idx))
+            n_val = int(np.floor(val_frac_adjusted * len(remaining_idx)))
+            val_local   = shuffled_remaining[:n_val]
+            train_local = shuffled_remaining[n_val:]
+
+        train_idx = remaining_idx[train_local]
+        val_idx   = remaining_idx[val_local]
+
+    elif stratified:
         # ── Stratified split ────────────────────────────────────────────────
-        # Step 1: separate test set
         splitter = MultilabelStratifiedShuffleSplit(
             n_splits=1, test_size=test_frac, random_state=seed
         )
         train_val_idx, test_idx = next(splitter.split(np.zeros(n), labels_array))
 
-        # Step 2: split remaining data into train / val
         train_val_labels  = labels_array[train_val_idx]
         val_frac_adjusted = val_frac / (1 - test_frac)
 
@@ -237,7 +271,6 @@ def build_dataloaders(
         train_idx_local, val_idx_local = next(
             splitter2.split(np.zeros(len(train_val_idx)), train_val_labels)
         )
-
         train_idx = train_val_idx[train_idx_local]
         val_idx   = train_val_idx[val_idx_local]
 
@@ -245,13 +278,11 @@ def build_dataloaders(
         # ── Random split ─────────────────────────────────────────────────────
         rng = np.random.default_rng(seed)
         shuffled = rng.permutation(all_idx)
-
-        n_test      = int(np.floor(test_frac * n))
-        n_val       = int(np.floor(val_frac  * n))
-
-        test_idx    = shuffled[:n_test]
-        val_idx     = shuffled[n_test : n_test + n_val]
-        train_idx   = shuffled[n_test + n_val:]
+        n_test   = int(np.floor(test_frac * n))
+        n_val    = int(np.floor(val_frac  * n))
+        test_idx  = shuffled[:n_test]
+        val_idx   = shuffled[n_test : n_test + n_val]
+        train_idx = shuffled[n_test + n_val:]
 
     def make_subset(split_name, indices):
         ds = UCMMultilabelDataset(
