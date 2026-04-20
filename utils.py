@@ -658,3 +658,74 @@ def plot_prediction_grid(test_preds, test_labels, test_probs, classes,
     return fig
 
 
+def plot_exact_match_by_class_count(preds, labels, model_name="Model",
+                                     color="steelblue", ax=None, save_path=None):
+    """
+    Calcula y grafica el Exact Match Accuracy agrupado por número de
+    clases presentes por imagen.
+
+    Args:
+        preds:      np.ndarray (N, C) — predicciones binarias
+        labels:     np.ndarray (N, C) — etiquetas ground truth
+        model_name: str — nombre del modelo para el título
+        color:      str — color de las barras
+        ax:         matplotlib Axes (opcional, para subplots)
+        save_path:  str — ruta para guardar la figura (opcional)
+    """
+    # Número de clases presentes por imagen (suma de la fila)
+    classes_per_image = labels.sum(axis=1).astype(int)   # shape (N,)
+
+    # Exact match por imagen: 1 si toda la fila coincide exactamente
+    exact_match = (preds == labels).all(axis=1).astype(int)  # shape (N,)
+
+    # Agrupar por número de clases
+    unique_counts = sorted(set(classes_per_image))
+    em_per_count  = []
+    n_per_count   = []
+
+    for k in unique_counts:
+        mask = classes_per_image == k
+        em_per_count.append(exact_match[mask].mean())
+        n_per_count.append(mask.sum())
+
+    # ── Plot ─────────────────────────────────────────────────────────────────
+    standalone = ax is None
+    if standalone:
+        fig, ax = plt.subplots(figsize=(9, 4))
+
+    bars = ax.bar(unique_counts, em_per_count, color=color, alpha=0.85, edgecolor="white")
+
+    # Anotar cada barra con el número de muestras del grupo
+    for bar, n in zip(bars, n_per_count):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 0.01,
+            f"n={n}",
+            ha="center", va="bottom", fontsize=8, color="gray"
+        )
+
+    ax.set_xlabel("Number of classes per image", fontsize=11)
+    ax.set_ylabel("Exact Match Accuracy", fontsize=11)
+    ax.set_title(f"{model_name} — Exact Match Acc. by class count", fontsize=12)
+    ax.set_xticks(unique_counts)
+    ax.set_ylim(0, 1.15)
+    ax.axhline(exact_match.mean(), color="red", linestyle="--", linewidth=1.2,
+               label=f"Overall EM acc = {exact_match.mean():.3f}")
+    ax.legend(fontsize=9)
+    ax.grid(axis="y", alpha=0.3)
+
+    if standalone:
+        plt.tight_layout()
+        if save_path:
+            Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+            plt.savefig(save_path, dpi=150, bbox_inches="tight")
+            print(f"Saved to: {save_path}")
+        try:
+            from IPython.display import display
+            display(fig)
+        except Exception:
+            plt.show()
+        plt.close(fig)
+        return fig, ax
+
+    return ax
