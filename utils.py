@@ -48,21 +48,21 @@ class UCMMultilabelDataset(Dataset):
         self.transform  = transform
         self.image_ext  = image_ext
  
-        # ── 1. Parse label file ──────────────────────────────────────────
+        # 1. Parse label file 
         label_path = os.path.join(root_dir, label_file)
         self.class_names, self.label_matrix = self._parse_labels(label_path)
         self.num_classes = len(self.class_names)
  
-        # ── 2. Collect image paths in sorted subfolder order ─────────────
+        # 2. Collect image paths in sorted subfolder order 
         self.image_paths = self._collect_image_paths()
  
-        # ── 3. Sanity check ──────────────────────────────────────────────
+        # 3. Sanity check
         assert len(self.image_paths) == len(self.label_matrix), (
             f"Mismatch: {len(self.image_paths)} images found but "
             f"{len(self.label_matrix)} label rows in the txt file."
         )
  
-    # ------------------------------------------------------------------ #
+    # ------------------------------------------------------------------ 
     def _parse_labels(self, label_path: str):
         """
         Returns:
@@ -86,7 +86,7 @@ class UCMMultilabelDataset(Dataset):
         label_matrix = torch.tensor(rows, dtype=torch.float32)  # (N, C)
         return class_names, label_matrix
  
-    # ------------------------------------------------------------------ #
+    # ------------------------------------------------------------------ 
     def _collect_image_paths(self) -> list:
         """
         Walks ucmdata/Images/ subfolder-by-subfolder in sorted order.
@@ -110,7 +110,7 @@ class UCMMultilabelDataset(Dataset):
  
         return image_paths
  
-    # ------------------------------------------------------------------ #
+    # ------------------------------------------------------------------ 
     def __len__(self) -> int:
         return len(self.image_paths)
  
@@ -178,126 +178,68 @@ def get_transforms(split: str = "train", image_size: tuple = (224, 224)):
  
 ### Dataloader and data splitting
 def build_dataloaders(
-    root_dir:    str        = "ucmdata",
-    label_file:  str        = "LandUse_Multilabeled.txt",
-    image_size:  tuple      = (224, 224), # Default but needs to be specified!
-    batch_size:  int        = 32,
-    num_workers: int        = 2,
-    val_frac:    float      = 0.15,
-    test_frac:   float      = 0.15,
-    seed:        int        = 42,
-    image_ext:   str        = ".tif",
-    stratified:  bool       = True,
-    test_idx:    np.ndarray = None,
+    root_dir:    str   = "ucmdata",
+    label_file:  str   = "LandUse_Multilabeled.txt",
+    image_size:  tuple = (224, 224), # Default but needs to be specified! 
+    batch_size:  int   = 32,
+    num_workers: int   = 2,
+    val_frac:    float = 0.15,
+    test_frac:   float = 0.15,
+    seed:        int   = 42,
+    image_ext:   str   = ".tif",
 ):
     """
     Returns (train_loader, val_loader, test_loader, class_names, pos_weights).
-
-    Args
-    ----
-    stratified : bool, default True
-        If True, uses MultilabelStratifiedShuffleSplit to preserve label
-        distribution across splits.
-        If False, uses a plain random split.
-
-    test_idx : np.ndarray, optional
-        Pre-computed test indices to use as the test set. When provided,
-        the function skips test set extraction and uses these indices directly.
-        Use this to share an identical test set across multiple calls
-        (e.g. stratified vs random comparison), ensuring results are comparable.
-
+ 
     Usage
     -----
-    # Shared test set for fair stratified vs random comparison:
-
-    # Step 1 — extract shared stratified test set once
-    _, _, test_loader, classes, _ = build_dataloaders(stratified=True, seed=42)
-    shared_test_idx = np.array(test_loader.dataset.indices)
-
-    # Step 2 — build both splits reusing the same test set
-    train_A, val_A, _, classes, pos_w_A = build_dataloaders(stratified=True,  seed=42, test_idx=shared_test_idx)
-    train_B, val_B, _, _,       pos_w_B = build_dataloaders(stratified=False, seed=42, test_idx=shared_test_idx)
-
-    # Evaluate both models on test_loader (shared)
-    criterion = torch.nn.BCEWithLogitsLoss(pos_weight=pos_w_A)
+    train_loader, val_loader, test_loader, classes, pos_w = build_dataloaders()
+    criterion = torch.nn.BCEWithLogitsLoss(pos_weight=pos_w)
     """
 
     full_ds = UCMMultilabelDataset(
         root_dir=root_dir, label_file=label_file,
         transform=None, image_ext=image_ext,
     )
-
+ 
     n = len(full_ds)
-    labels_array = full_ds.label_matrix.numpy()
-    all_idx = np.arange(n)
-
-    if test_idx is not None:
-        # ── Shared test set provided — only split remaining into train / val ──
-        test_idx      = np.asarray(test_idx)
-        remaining_idx = np.setdiff1d(all_idx, test_idx)
-        remaining_labels = labels_array[remaining_idx]
-        val_frac_adjusted = val_frac / (1 - test_frac)
-
-        if stratified:
-            splitter = MultilabelStratifiedShuffleSplit(
-                n_splits=1, test_size=val_frac_adjusted, random_state=seed
-            )
-            train_local, val_local = next(
-                splitter.split(np.zeros(len(remaining_idx)), remaining_labels)
-            )
-        else:
-            rng = np.random.default_rng(seed)
-            shuffled_remaining = rng.permutation(len(remaining_idx))
-            n_val = int(np.floor(val_frac_adjusted * len(remaining_idx)))
-            val_local   = shuffled_remaining[:n_val]
-            train_local = shuffled_remaining[n_val:]
-
-        train_idx = remaining_idx[train_local]
-        val_idx   = remaining_idx[val_local]
-
-    elif stratified:
-        # ── Stratified split ────────────────────────────────────────────────
-        splitter = MultilabelStratifiedShuffleSplit(
-            n_splits=1, test_size=test_frac, random_state=seed
-        )
-        train_val_idx, test_idx = next(splitter.split(np.zeros(n), labels_array))
-
-        train_val_labels  = labels_array[train_val_idx]
-        val_frac_adjusted = val_frac / (1 - test_frac)
-
-        splitter2 = MultilabelStratifiedShuffleSplit(
-            n_splits=1, test_size=val_frac_adjusted, random_state=seed
-        )
-        train_idx_local, val_idx_local = next(
-            splitter2.split(np.zeros(len(train_val_idx)), train_val_labels)
-        )
-        train_idx = train_val_idx[train_idx_local]
-        val_idx   = train_val_idx[val_idx_local]
-
-    else:
-        # ── Random split ─────────────────────────────────────────────────────
-        rng = np.random.default_rng(seed)
-        shuffled = rng.permutation(all_idx)
-        n_test   = int(np.floor(test_frac * n))
-        n_val    = int(np.floor(val_frac  * n))
-        test_idx  = shuffled[:n_test]
-        val_idx   = shuffled[n_test : n_test + n_val]
-        train_idx = shuffled[n_test + n_val:]
-
+    labels_array = full_ds.label_matrix.numpy()  # Convert to numpy
+    
+    # First split: train+val vs test
+    splitter = MultilabelStratifiedShuffleSplit(
+        n_splits=1, test_size=test_frac, random_state=seed
+    )
+    train_val_idx, test_idx = next(splitter.split(np.zeros(n), labels_array))
+    
+    # Second split: train vs val from train+val
+    train_val_labels = labels_array[train_val_idx]
+    val_frac_adjusted = val_frac / (1 - test_frac)  # Adjust fraction for remaining data
+    
+    splitter2 = MultilabelStratifiedShuffleSplit(
+        n_splits=1, test_size=val_frac_adjusted, random_state=seed
+    )
+    train_idx_local, val_idx_local = next(splitter2.split(
+        np.zeros(len(train_val_idx)), train_val_labels
+    ))
+    
+    # Map back to original indices
+    train_idx = train_val_idx[train_idx_local]
+    val_idx = train_val_idx[val_idx_local]
+    
     def make_subset(split_name, indices):
         ds = UCMMultilabelDataset(
             root_dir=root_dir, label_file=label_file,
             transform=get_transforms(split_name, image_size), image_ext=image_ext,
         )
         return Subset(ds, indices)
-
+    
     train_ds = make_subset("train", train_idx)
     val_ds   = make_subset("val",   val_idx)
     test_ds  = make_subset("test",  test_idx)
-
+    
     kw = dict(batch_size=batch_size, num_workers=num_workers,
               pin_memory=torch.cuda.is_available())
-
+ 
     return (
         DataLoader(train_ds, shuffle=True,  **kw),
         DataLoader(val_ds,   shuffle=False, **kw),
@@ -305,7 +247,7 @@ def build_dataloaders(
         full_ds.get_class_names(),
         full_ds.get_class_weights(),
     )
- 
+
  
 ### Lightning Module Pretrained model and Head for multilabel classification
 import torch.nn as nn
