@@ -333,6 +333,12 @@ import matplotlib.patches as mpatches
 import pandas as pd
 
 
+def save_model_results(test_probs, test_preds, test_labels, classes, pretrained_model):
+    output_df = pd.DataFrame(test_probs, columns=[f"{c}_prob" for c in classes])
+    output_df[[f"{c}_pred" for c in classes]] = test_preds
+    output_df[[f"{c}_label" for c in classes]] = test_labels
+    output_df.to_csv(f"outputs/{pretrained_model}_multilabel_test_results.csv", index=False)
+
 
 def compute_test_metrics(test_preds, test_labels, test_probs):
     """
