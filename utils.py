@@ -459,37 +459,44 @@ def plot_per_class_metrics(test_labels, test_preds, test_probs, classes,
     num_classes = len(classes)
     
     # Sort by F1 score (ascending, weakest first)
-    order = np.argsort(per_class_f1)
+    order = np.argsort(-positives)  # Secondary sort by AP
     classes_sorted = [classes[i] for i in order]
     f1_sorted = per_class_f1[order]
     ap_sorted = per_class_ap[order]
     pos_sorted = positives[order]
     
-    # Create bar plot
-    fig, ax = plt.subplots(figsize=(10, max(4, 0.35 * num_classes)))
-    y = np.arange(num_classes)
-    ax.barh(y - 0.2, f1_sorted, height=0.4, label="F1")
-    ax.barh(y + 0.2, ap_sorted, height=0.4, label="AP")
-    ax.set_yticks(y)
-    ax.set_yticklabels(classes_sorted)
-    ax.set_xlim(0, 1)
-    ax.set_xlabel("score")
-    
-    # Build title with optional macro metrics
+    # Create 
+    fig, ax = plt.subplots(figsize=(max(10, 0.5 * num_classes), 6))
+    x = np.arange(num_classes)
+    ax.bar(x - 0.2, f1_sorted, width=0.4, label="F1")
+    ax.bar(x + 0.2, ap_sorted, width=0.4, label="AP")
+    ax.set_xticks(x)
+    ax.set_xticklabels(classes_sorted, rotation=45, ha="right")
+    ax.set_ylim(0, 1)
+    ax.set_ylabel("score")
+
+    # Title
     title = f"{model_name} — per-class F1 & AP"
-    if macro_f1 is not None and macro_map is not None:
-        title += f"  (macro F1 = {macro_f1:.3f}, macro mAP = {macro_map:.3f})"
     ax.set_title(title)
-    
-    # Add sample counts
+
     for i, (f, a, p) in enumerate(zip(f1_sorted, ap_sorted, pos_sorted)):
-        ax.text(max(f, a) + 0.01, i, f"n={p}", va="center", fontsize=8, color="gray")
-    
+        ax.text(
+            i, 
+            min(f, a) - 0.03,   
+            f"n={p}", 
+            ha="center", 
+            va="top",
+            fontsize=8.5,
+            fontweight="bold",        
+            color="black",             
+            rotation=90,                
+        )
+
     ax.legend(loc="lower right")
-    ax.grid(axis="x", alpha=0.3)
+    ax.grid(axis="y", alpha=0.3)
     plt.tight_layout()
     
-    # Save figure if requested
+    # Save figure 
     if save_path:
         Path(save_path).parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(save_path, dpi=150, bbox_inches="tight")
@@ -497,7 +504,7 @@ def plot_per_class_metrics(test_labels, test_preds, test_probs, classes,
     
     plt.show()
     
-    # Create summary DataFrame
+    # Summary DataFrame
     summary = pd.DataFrame({
         "class": classes_sorted,
         "positives": pos_sorted,
