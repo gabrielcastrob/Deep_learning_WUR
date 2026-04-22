@@ -470,6 +470,13 @@ def plot_prediction_grid(test_preds, test_labels, test_probs, classes,
     # Pick images with 3 or more classes
     np.random.seed(seed)
     multi_class_indices = [i for i in range(len(test_labels)) if test_labels[i].sum() >= 3]
+
+    #Images where at least 1 class is missed (FN) or extra (FP)
+    multi_class_indices = [i for i in multi_class_indices if 
+                           ((test_labels[i] == 1) & (test_preds[i] == 0)).any() or
+                           ((test_labels[i] == 0) & (test_preds[i] == 1)).any()]
+
+
     chosen = np.random.choice(multi_class_indices, size=min(n_show, len(multi_class_indices)), replace=False)
 
     
