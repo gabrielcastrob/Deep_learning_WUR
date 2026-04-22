@@ -451,18 +451,6 @@ def plot_prediction_grid(test_preds, test_labels, test_probs, classes,
     """
     Plot a grid of test images with ground-truth vs predicted labels.
     
-    Args:
-        test_preds: Predicted labels, shape (N, C)
-        test_labels: Ground truth labels, shape (N, C)
-        test_probs: Predicted probabilities, shape (N, C)
-        classes: List of class names
-        test_loader: DataLoader for test set
-        root_dir: Path to dataset root directory
-        label_file: Name of label file
-        n_show: Number of images to display (default 3x3 grid)
-        seed: Random seed for reproducibility
-        save_path: Optional path to save the figure
-    
     Returns:
         fig: matplotlib figure object
     """
@@ -479,20 +467,11 @@ def plot_prediction_grid(test_preds, test_labels, test_probs, classes,
     cols = 3
     rows = (n_show + cols - 1) // cols
     
-    # Pick a mix: correct predictions + incorrect predictions
-    errors_per_sample = (test_preds != test_labels).sum(axis=1)
-    correct_idx = np.where(errors_per_sample == 0)[0]
-    wrong_idx = np.where(errors_per_sample > 0)[0]
-    
-    rng_show = np.random.default_rng(seed)
-    n_correct = min(n_show // 2, len(correct_idx))
-    n_wrong = n_show - n_correct
-    
-    chosen = np.concatenate([
-        rng_show.choice(correct_idx, n_correct, replace=False),
-        rng_show.choice(wrong_idx, n_wrong, replace=False),
-    ])
-    rng_show.shuffle(chosen)
+    # Pick images with 3 or more classes
+    np.random.seed(seed)
+    multi_class_indices = [i for i in range(len(test_labels)) if test_labels[i].sum() >= 3]
+    chosen = np.random.choice(multi_class_indices, size=min(n_show, len(multi_class_indices)), replace=False)
+
     
     # Create figure
     fig, axes = plt.subplots(rows, cols, figsize=(cols * 4.5, rows * 5.2))
