@@ -676,7 +676,7 @@ def plot_per_class_metrics_comparison(
     
     # Add count labels on top of bars
     for i, count in enumerate(counts_sorted):
-        ax_f1.text(i, 1.05, f"n={int(count)}", ha="center", va="bottom", fontsize=8, color="gray")
+        ax_f1.text(i, 1.05, f"n={int(count)}", ha="center", va="bottom", fontsize=8, color="black")
     
     ax_f1.set_xticks(x)
     ax_f1.set_xticklabels(classes_sorted, rotation=45, ha="right")
@@ -702,7 +702,7 @@ def plot_per_class_metrics_comparison(
     
     # Add count labels on top of bars
     for i, count in enumerate(counts_sorted):
-        ax_ap.text(i, 1.05, f"n={int(count)}", ha="center", va="bottom", fontsize=8, color="gray")
+        ax_ap.text(i, 1.05, f"n={int(count)}", ha="center", va="bottom", fontsize=8, color="black")
     
     ax_ap.set_xticks(x)
     ax_ap.set_xticklabels(classes_sorted, rotation=45, ha="right")
