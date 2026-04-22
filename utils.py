@@ -331,6 +331,10 @@ class LightningModuleMultilabel(L.LightningModule):
 from sklearn.metrics import f1_score, average_precision_score, hamming_loss
 import matplotlib.patches as mpatches
 import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from pathlib import Path
 
 
 def save_model_results(test_probs, test_preds, test_labels, classes, pretrained_model):
@@ -433,8 +437,6 @@ def plot_training_curves(csv_logger, model_name: str = "ResNet-50 multilabel", s
     
     plt.show()
     return fig, axes
-
-### AQUI VA 
 
 
 def plot_prediction_grid(test_preds, test_labels, test_probs, classes, 
@@ -622,3 +624,103 @@ def plot_exact_match_by_class_count(preds, labels, model_name="Model",
         return fig, ax
 
     return ax
+
+
+def plot_per_class_metrics_comparison(
+    test_labels1, test_preds1, test_probs1, 
+    test_labels2, test_preds2, test_probs2,
+    class_counts_df,
+    model_name1: str = "Model 1",
+    model_name2: str = "Model 2",
+    save_path: str = None):
+    """
+    Plot per-class F1 and AP metrics for 2 models with grouped bars (separate figures).
+
+    Returns:
+        tuple: (fig_f1, ax_f1, fig_ap, ax_ap, summary_df) with comparison results
+    """
+    
+    # Compute per-class metrics for both models
+    per_class_f1_1 = f1_score(test_labels1, test_preds1, average=None, zero_division=0)
+    per_class_ap_1 = average_precision_score(test_labels1, test_probs1, average=None)
+    
+    per_class_f1_2 = f1_score(test_labels2, test_preds2, average=None, zero_division=0)
+    per_class_ap_2 = average_precision_score(test_labels2, test_probs2, average=None)
+    
+    classes = class_counts_df["Class"].tolist()
+    num_classes = len(classes)
+    
+    # Create a mapping of class names to indices
+    class_to_idx = {c: i for i, c in enumerate(classes)}
+    
+    # Sort by counts from class_counts_df (descending)
+    class_counts_df_sorted = class_counts_df.sort_values("Count", ascending=False).reset_index(drop=True)
+    
+    # Get sorted indices based on sorted class names
+    sorted_indices = [class_to_idx[c] for c in class_counts_df_sorted["Class"]]
+    
+    classes_sorted = class_counts_df_sorted["Class"].tolist()
+    counts_sorted = class_counts_df_sorted["Count"].values
+    f1_1_sorted = per_class_f1_1[sorted_indices]
+    ap_1_sorted = per_class_ap_1[sorted_indices]
+    f1_2_sorted = per_class_f1_2[sorted_indices]
+    ap_2_sorted = per_class_ap_2[sorted_indices]
+    
+    x = np.arange(num_classes)
+    width = 0.35  # Width of each bar
+    
+    # Figure 1: F1 Scores
+    fig_f1, ax_f1 = plt.subplots(figsize=(max(12, 0.8 * num_classes), 6))
+    ax_f1.bar(x - width/2, f1_1_sorted, width, label=f"{model_name1} F1", color="lightblue")
+    ax_f1.bar(x + width/2, f1_2_sorted, width, label=f"{model_name2} F1", color="lightsalmon")
+    
+    # Add count labels on top of bars
+    for i, count in enumerate(counts_sorted):
+        ax_f1.text(i, 1.05, f"n={int(count)}", ha="center", va="bottom", fontsize=8, color="gray")
+    
+    ax_f1.set_xticks(x)
+    ax_f1.set_xticklabels(classes_sorted, rotation=45, ha="right")
+    ax_f1.set_ylim(0, 1.15)
+    ax_f1.set_ylabel("F1 Score")
+    ax_f1.set_title(f"{model_name1} vs {model_name2} — Per-class F1 Comparison (sorted by sample count)")
+    ax_f1.legend(loc="lower right", fontsize=10)
+    ax_f1.grid(axis="y", alpha=0.3)
+    plt.tight_layout()
+    
+    if save_path:
+        f1_path = save_path.replace(".png", "_f1.png")
+        Path(f1_path).parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(f1_path, dpi=150, bbox_inches="tight")
+        print(f"Saved F1 comparison plot to: {f1_path}")
+    
+    plt.show()
+    
+    # Figure 2: AP Scores
+    fig_ap, ax_ap = plt.subplots(figsize=(max(12, 0.8 * num_classes), 6))
+    ax_ap.bar(x - width/2, ap_1_sorted, width, label=f"{model_name1} AP", color="lightblue")
+    ax_ap.bar(x + width/2, ap_2_sorted, width, label=f"{model_name2} AP", color="lightsalmon")
+    
+    # Add count labels on top of bars
+    for i, count in enumerate(counts_sorted):
+        ax_ap.text(i, 1.05, f"n={int(count)}", ha="center", va="bottom", fontsize=8, color="gray")
+    
+    ax_ap.set_xticks(x)
+    ax_ap.set_xticklabels(classes_sorted, rotation=45, ha="right")
+    ax_ap.set_ylim(0, 1.15)
+    ax_ap.set_ylabel("Average Precision")
+    ax_ap.set_title(f"{model_name1} vs {model_name2} — Per-class AP Comparison (sorted by sample count)")
+    ax_ap.legend(loc="lower right", fontsize=10)
+    ax_ap.grid(axis="y", alpha=0.3)
+    plt.tight_layout()
+    
+    if save_path:
+        ap_path = save_path.replace(".png", "_ap.png")
+        Path(ap_path).parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(ap_path, dpi=150, bbox_inches="tight")
+        print(f"Saved AP comparison plot to: {ap_path}")
+    
+    plt.show()
+    
+
+    
+    return fig_f1, ax_f1, fig_ap, ax_ap
