@@ -412,7 +412,9 @@ def plot_training_curves(csv_logger, model_name: str = "ResNet-50 multilabel", s
     if "val_loss" in epoch_df.columns:
         axes[0].plot(epoch_df["epoch"], epoch_df["val_loss"], label="val", marker="s", markersize=3)
     axes[0].set_xlabel("epoch")
+    axes[0].set_xlim(0, 20)
     axes[0].set_ylabel("BCE loss")
+    axes[0].set_ylim(0, 1)
     axes[0].set_title(f"{model_name} — Loss")
     axes[0].legend()
     axes[0].grid(alpha=0.3)
@@ -423,7 +425,9 @@ def plot_training_curves(csv_logger, model_name: str = "ResNet-50 multilabel", s
     if "val_f1" in epoch_df.columns:
         axes[1].plot(epoch_df["epoch"], epoch_df["val_f1"], label="val macro-F1", marker="s", markersize=3)
     axes[1].set_xlabel("epoch")
+    axes[1].set_xlim(0, 20)
     axes[1].set_ylabel("macro F1")
+    axes[1].set_ylim(0, 1)
     axes[1].set_title(f"{model_name} — macro F1")
     axes[1].legend()
     axes[1].grid(alpha=0.3)
