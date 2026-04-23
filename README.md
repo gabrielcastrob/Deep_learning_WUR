@@ -1,6 +1,6 @@
 # Deep Learning — Multilabel Land-Use Classification
 
-Multilabel classification on **UC Merced** (21 classes, 2100 images) — WUR Assignment (GRS-34806 / FTE-35306).
+Multilabel classification on **UC Merced** (17 classes, 2100 images) — WUR Assignment (GRS-34806 / FTE-35306).
 
 ## Goal
 
@@ -8,9 +8,8 @@ Compare three architectures for multilabel aerial image classification:
 
 | Level | Model | Role |
 |---|---|---|
-| 1 | SmallCNN (from scratch) | Baseline |
-| 2 | ResNet-50 (fine-tuned) | Practical best |
-| 3 | ViT-B/16 (fine-tuned) | Global dependencies |
+| 1 | ResNet-50 (fine-tuned) | Base architecture |
+| 2 | ViT-B/16 (fine-tuned) | Newer architecture |
 
 ## Structure
 
@@ -34,7 +33,6 @@ Compare three architectures for multilabel aerial image classification:
 
 | Parameter | ResNet-50 | ViT-B/16 |
 |---|---|---|
-| Optimizer | AdamW | AdamW |
 | LR | 1e-4 | 1e-5 |
 | Weight decay | 1e-4 | 0.01 |
 | Batch size | 32 | 32 |
