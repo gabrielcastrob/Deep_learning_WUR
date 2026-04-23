@@ -22,9 +22,9 @@ Comparison of **ResNet-50** and **ViT-B/16** for multi-label classification on t
 
 | | ResNet-50 | ViT-B/16 |
 |---|---|---|
-| Pretrained weights | ImageNet1K V2 | ImageNet1K V1 |
-| LR | 1e-4 | 1e-5 |
-| Weight decay | 1e-4 | 0.01 |
+| Pretrained weights | ImageNet1K V1 | ImageNet1K V1 |
+| LR | 1e-4 | 1e-4 |
+| Weight decay | 1e-4 | 1e-4 |
 | Max epochs | 25 | 25 |
 | Early stopping | 5 epochs | 5 epochs |
 
