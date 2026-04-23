@@ -27,12 +27,11 @@ class UCMMultilabelDataset(Dataset):
         agricultural00    0           0            0      …     0
         …
  
-    Strategy
-    --------
+    Steps
     1. Parse the label file → class names from the header (cols 1…end,
        skipping "IMAGE\LABEL") + label matrix (N × C).
     2. Walk ucmdata/Images/ subfolder-by-subfolder in sorted order, collecting
-       every image path into a flat list — same traversal order as the txt file.
+       every image path into a flat list — same  order as the txt file.
     3. Pair image_paths[i]  ↔  label_matrix[i]  by position (no name matching).
     """
  
@@ -62,7 +61,7 @@ class UCMMultilabelDataset(Dataset):
             f"{len(self.label_matrix)} label rows in the txt file."
         )
  
-    # ------------------------------------------------------------------ 
+    # ---------------------------------------------------- 
     def _parse_labels(self, label_path: str):
         """
         Returns:
@@ -72,11 +71,11 @@ class UCMMultilabelDataset(Dataset):
         with open(label_path, "r") as f:
             lines = [l.strip() for l in f if l.strip()]
  
-        # Header row → class names (skip the first column "IMAGE\LABEL")
+        # Header row: class names (skip the first column "IMAGE\LABEL")
         header      = lines[0].split("\t")
         class_names = header[1:]          # ['airplane', 'bare-soil', …, 'water']
  
-        # Data rows → label matrix (parts[0] is the image name, ignored here)
+        # Data rows: label matrix (parts[0] is the image name, ignored here)
         rows = []
         for line in lines[1:]:
             parts = line.split("\t")
@@ -86,11 +85,11 @@ class UCMMultilabelDataset(Dataset):
         label_matrix = torch.tensor(rows, dtype=torch.float32)  # (N, C)
         return class_names, label_matrix
  
-    # ------------------------------------------------------------------ 
+    # --------------------------------------------------
     def _collect_image_paths(self) -> list:
         """
         Walks ucmdata/Images/ subfolder-by-subfolder in sorted order.
-        Within each subfolder images are also sorted — matching the txt order.
+        Within each subfolder images are also sorted.
         Returns a flat list of absolute image paths.
         """
         image_paths = []
@@ -110,7 +109,7 @@ class UCMMultilabelDataset(Dataset):
  
         return image_paths
  
-    # ------------------------------------------------------------------ 
+    # -----------------------------------------------
     def __len__(self) -> int:
         return len(self.image_paths)
  
@@ -152,7 +151,7 @@ class UCMMultilabelDataset(Dataset):
             print(f"{short:<55}  {active}")
  
 
-## Augmentation
+## Augmentation function
 
 def get_transforms(split: str = "train", image_size: tuple = (224, 224)):
     """Standard augmentation."""
@@ -190,11 +189,7 @@ def build_dataloaders(
 ):
     """
     Returns (train_loader, val_loader, test_loader, class_names, pos_weights).
- 
-    Usage
-    -----
-    train_loader, val_loader, test_loader, classes, pos_w = build_dataloaders()
-    criterion = torch.nn.BCEWithLogitsLoss(pos_weight=pos_w)
+
     """
 
     full_ds = UCMMultilabelDataset(
@@ -249,7 +244,7 @@ def build_dataloaders(
     )
 
  
-### Lightning Module Pretrained model and Head for multilabel classification
+### Lightning Module for transfer learning for multilabel classification
 import torch.nn as nn
 import torchmetrics
 import pytorch_lightning as L
