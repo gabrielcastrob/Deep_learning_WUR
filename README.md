@@ -33,8 +33,8 @@ Compare three architectures for multilabel aerial image classification:
 
 | Parameter | ResNet-50 | ViT-B/16 |
 |---|---|---|
-| LR | 1e-4 | 1e-5 |
-| Weight decay | 1e-4 | 0.01 |
+| LR | 1e-4 | 1e-4 |
+| Weight decay | 1e-4 |  1e-4 |
 | Batch size | 32 | 32 |
 | Max epochs | 25 (early stop) | 25 (early stop) |
 | Loss | BCEWithLogitsLoss + pos_weight | idem |
